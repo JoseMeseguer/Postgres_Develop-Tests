@@ -82,7 +82,6 @@ $$ LANGUAGE plpgsql;
 -- PROTOTIPO DE LA FUNCION 
 CREATE OR REPLACE FUNCTION cart_reserve_units()  RETURNS TRIGGER AS $$
 BEGIN
-	
 
     RETURN NULL;
 END; 
@@ -127,11 +126,10 @@ select addtoCart (2000, 100, 3)
 select showCart(2000)
 SELECT sum(units) FROM current_cart_2000 
 
-
 -- Procedimiento para modificar SOLAMENTE cantidades de un producto del carrito
 CREATE OR REPLACE FUNCTION modifyUnitsCart(codeuser int, codeprod int, units int)  RETURNS int  AS $$
 BEGIN
-    execute format ('update current_cart_%s set units = $1 where product = $2', codeuser) USING codeprod, units;
+    execute format ('update current_cart_%s set units = $1 where product = $2', codeuser) USING units, codeprod;
     RETURN 1;
 END; 
 $$  LANGUAGE plpgsql;
@@ -155,7 +153,6 @@ select addtoCart (2000, 102, 5);
 select addtoCart (2000, 103, 1);
 select addtoCart (2000, 104, 2);
 
-
 -- Procedimiento que guarda el carrito para una posterior revision, se cancelan las unidades reservadas
 -- si por reglas de negocio interesa guardar las cantidades de cada producto aunque sea sin reserva, se implementa
 CREATE OR REPLACE FUNCTION saveCart(codeuser int, name varchar)  RETURNS int  AS $$
@@ -165,13 +162,12 @@ BEGIN
     execute format ('select array_agg(product), array_agg(units) from current_cart_%s', codeuser) 
     INTO v_prods, v_units;
 
-    execute format ('insert into client_saved_carts values ($1, null, current_timestamp, $2, $3);') 
-    USING codeuser, v_prods, v_units; 
+    execute format ('insert into client_saved_carts values ($1, null, current_timestamp, $2, $3)
+                    ON CONFLICT (clientcode) DO UPDATE SET session_ts=current_timestamp, products=$2, units=$3;') 
+                    USING codeuser, v_prods, v_units; 
     RETURN 0;
 END; 
 $$ LANGUAGE plpgsql;
-
-insert into client_saved_carts values (2000, null, current_timestamp, null, null);
 
 -- comprobacion
 select saveCart(2000, null);
@@ -187,15 +183,39 @@ CREATE UNLOGGED TABLE  client_saved_carts (
         units       integer[]
     );
 
+
 -- procedimiento para cargar uno de los carritos guardados como el actual
 CREATE OR REPLACE FUNCTION loadCart(codeuser int, name varchar)  RETURNS int  AS $$
+declare numprods int;
+declare i int := 1;
+declare v_prods int[];
+declare v_units int[];
+declare myquery varchar := '';
+declare lines varchar[];
 BEGIN
-    -- bucle que recorra los array
-	RETURN 0;
+    select array_length(products,1), products, units 
+    from client_saved_carts where clientcode = codeuser 
+    INTO numprods, v_prods, v_units;
+
+    IF numprods >= 1    -- SI EL CLIENTE NO TIENE CARRITO GUARDADO NO PROVOCAMOS UN ERROR
+    THEN
+        WHILE i <= numprods  LOOP
+            lines[i] :=  '(current_timestamp, '  || v_prods[i] || ', ' || v_units[i] || ')';
+            i := i +1;
+        END LOOP;
+        myquery := format ('insert into current_cart_%s values ', codeuser ) || array_to_string (lines, ',') || ';' ;
+        execute myquery; 
+    END IF;
+    RETURN 0;
 END; 
 $$  LANGUAGE plpgsql;
 
--- procedimiento para validar la compra a partir del carrito actual
+truncate current_cart_2000
+select * from current_cart_2000
+select loadCart(2000, 'jose') -- comprobacion
+
+
+-- PROTOTIPO: procedimiento para validar la compra a partir del carrito actual
 CREATE OR REPLACE FUNCTION acceptCart(codeuser int)  RETURNS int  AS $$
 BEGIN
     -- cursor que recorra la tabla temporal y realice inserciones en sale y saledetails
@@ -203,3 +223,23 @@ BEGIN
 END; 
 $$  LANGUAGE plpgsql;
 
+
+-- PROTOTIPO: procedimiento para descartar el carrito actual
+CREATE OR REPLACE FUNCTION discardCart(codeuser int)  RETURNS int  AS $$
+BEGIN
+    -- cursor que recorra la tabla temporal y realice inserciones en sale y saledetails
+    RETURN 0;
+END; 
+$$  LANGUAGE plpgsql;
+
+
+-- una posible funcion a llamar cada X minutos para que eliminara todos los carritos guardados
+-- que superen el margen de tiempo establecido y para los que solo han superado el tiempo de reserva
+-- establecer su carrito como "expired" (añadiremos un campo booleano) y eliminamos las reservas de producto
+-- PROTOTIPO: 
+CREATE OR REPLACE FUNCTION manageSavedCarts(int minuts)  RETURNS int  AS $$
+BEGIN
+
+    RETURN 0;
+END; 
+$$  LANGUAGE plpgsql;
