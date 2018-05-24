@@ -14,25 +14,28 @@ CREATE TABLE logs_sales (
 )  PARTITION BY RANGE (created);
 
 CREATE TABLE logs_sales2015 PARTITION OF logs_sales
-    FOR VALUES FROM  ( '2015-01-01' )  TO  ('2015-12-31' );
+    FOR VALUES FROM  ( '2015-01-01 00:00:00' )  TO  ('2015-12-31 23:59:59' );
 
 CREATE TABLESPACE TesteoFast  OWNER postgres  LOCATION 'C:\Data\postgresql\testeofast';
 
 CREATE TABLE logs_sales2016 PARTITION OF logs_sales
-    FOR VALUES FROM  ( '2016-01-01' )  TO  ('2016-12-31' )
+    FOR VALUES FROM  ( '2016-01-01  00:00:00' ) TO ('2016-12-31 23:59:59' )
     TABLESPACE TesteoFast;
 
 CREATE TABLE logs_sales2017 PARTITION OF logs_sales
-    FOR VALUES FROM  ( '2017-01-01' )  TO  ('2017-12-31' )
+    FOR VALUES FROM  ( '2017-01-01  00:00:00' ) TO ('2017-12-31 23:59:59' )
     WITH (parallel_workers = 4)
     TABLESPACE TesteoFast;
 
 CREATE  INDEX  ON  logs_sales2015 (created);
 CREATE  INDEX  ON  logs_sales2016 (created);
 CREATE  INDEX  ON  logs_sales2017 (created);
+CREATE  INDEX  ON  logs_sales2018 (created);
+
+
 
 CREATE TABLE logs_sales2018  PARTITION OF  logs_sales
-    FOR VALUES FROM ( '2018-01-01' )  TO  ('2018-12-31' )
+    FOR VALUES FROM ( '2018-01-01  00:00:00' )  TO  ('2018-12-31 23:59:59' )
     PARTITION BY LIST (country);
 
 
@@ -53,10 +56,10 @@ CREATE TABLE logs_sales2019 (
   TABLESPACE TesteoFast;
 
 ALTER TABLE logs_sales2019 ADD CONSTRAINT logs_sales2019_created_check
-       CHECK ( created >= DATE '2019-01-01' AND created <= DATE '2019-12-31' );   
+       CHECK ( created >= '2019-01-01 00:00:00' AND created <= '2019-12-31 23:59:59' );   
 -- una vez insertados y tratados los datos de la tabla, aplicamos el mecanismo de herencia para convertirla en partición
 ALTER TABLE  logs_sales ATTACH PARTITION  logs_sales2019
-    FOR VALUES FROM ( '2019-01-01' )  TO  ('2019-12-31'); 
+    FOR VALUES FROM ( '2019-01-01 00:00:00' )  TO  ('2019-12-31 23:59:59'); 
 ALTER TABLE logs_sales2019 DROP CONSTRAINT logs_sales2019_created_check;
 
 
@@ -68,10 +71,8 @@ insert into logs_sales values (1, 15, '02-02-2012', ARRAY[25,101], 2);  --fallar
 
 select * from only logs_sales;   -- presentara nada porque no se guarda ninguna fila en esta tabla
 
-
 select * from logs_sales; --vemos como por la forma en que hemos insertado valores la sequencia del serial no se ha aplicado
 --y hemos repetido codigos de log que deberian ser unicos
-
 
 -- pero si modificamos la forma de realizar el insert comprobamos que la sequencia se implanta correctamente
 insert into logs_sales values (default, 12, '01-02-2015', ARRAY[22,115], 14);
@@ -80,7 +81,6 @@ insert into logs_sales values (default, 12, '01-02-2017', ARRAY[22,115], 14);
 insert into logs_sales values (default, 12, '01-02-2017', ARRAY[22,115], 14);
 
 select * from logs_sales;
-
 select * from logs_sales2015;
 select * from logs_sales2017;
 
@@ -114,29 +114,30 @@ insert into logs_salesh values (default, 12, '01-02-2018', ARRAY[22,115], 14);
 
 --TABLAS DERIVADAS, PODRIAN APORTAR SUS PROPIOS CAMPOS SI FUESE NECESARIO
 CREATE TABLE logs_salesh2015 (
-    CHECK ( created >= DATE '2015-01-01' AND created <= DATE '2015-12-31' ) 
+    CHECK ( created >= '2015-01-01 00:00:00' AND created <= '2015-12-31 23:59:59' ) 
 ) INHERITS (logs_salesh);
 
 CREATE TABLE logs_salesh2016 ( 
-    CHECK ( created >= DATE '2016-01-01' AND created <= DATE '2016-12-31' ) 
+    CHECK ( created >= '2016-01-01 00:00:00' AND created <= '2016-12-31 23:59:59' ) 
 ) INHERITS (logs_salesh);
 
 CREATE TABLE logs_salesh2017 ( 
     jsondate jsonb,
-    CHECK ( created >= DATE '2017-01-01' AND created <= DATE '2017-12-31' ) 
+    CHECK ( created >= '2017-01-01 00:00:00' AND created <= '2017-12-31 23:59:59' ) 
 ) INHERITS (logs_salesh);
 
 -- PODREMOS CREAR LOS INDICES NECESARIOS EN CADA TABLA DERIVADA O PARTICION
 CREATE INDEX logs_salesh2015_created ON logs_salesh2015 (created);
 CREATE INDEX logs_salesh2016_created ON logs_salesh2016 (created);
 CREATE INDEX logs_salesh2017_created ON logs_salesh2017 (created);
+CREATE INDEX logs_salesh2018_created ON logs_salesh2018 (created);
+
 
 -- CONVERSION DE UNA TABLA REGULAR EN PARTICION A TRAVES DE LA HERENCIA
-CREATE TABLE logs_salesh2018 (
-    LIKE logs_salesh INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
+CREATE TABLE logs_salesh2018 (LIKE logs_salesh INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
     
 ALTER TABLE logs_salesh2018 ADD CONSTRAINT logs_sales2018_created_check
-       CHECK ( created >= DATE '2018-01-01' AND created <= DATE '2018-12-31' );   
+       CHECK ( created >= '2018-01-01 00:00:00' AND created <= '2018-12-31 23:59:59' );   
 -- UNA VEZ INSERTADOS Y TRATADOS LOS DATOS DE LA TABLA LA INCORPORAMOS AL MECANISMO
 -- DE HERENCIA PARA CONVERTIRLA EN UNA PARTICION
 ALTER TABLE logs_salesh2018  INHERIT logs_salesh;
@@ -148,11 +149,10 @@ insert into logs_salesh2018 values (1, 12, '01-02-2018', ARRAY[22,115], 14);
 select * from logs_salesh2018 ;
 
 -- UNA SOLUCION SERIA AÑADIR A POSTERIORI LA CONSTRAINT
-alter table salesh2015 add CONSTRAINT pk_salesh2015 primary key (id);
-alter table salesh2016 add CONSTRAINT pk_salesh2016 primary key (id);
-alter table salesh2017 add CONSTRAINT pk_salesh2017 primary key (id);
-alter table salesh2018 add CONSTRAINT pk_salesh2018 primary key (id);
-
+alter table logs_salesh2015 add CONSTRAINT pk_salesh2015 primary key (id);
+alter table logs_salesh2016 add CONSTRAINT pk_salesh2016 primary key (id);
+alter table logs_salesh2017 add CONSTRAINT pk_salesh2017 primary key (id);
+alter table logs_salesh2018 add CONSTRAINT pk_salesh2018 primary key (id);
 
 --PERO SI HAY DATOS GUARDADOS QUE INCUMPLEN LA CONSTRAINT DEBEREMOS HACER UN TRUNCATE
 --TENIENDO EN CUENTA QUE ELIMINAREMOS LOS DATOS DE TODAS LAS PARTICIONES Y REINICIAREMOS LA SEQUENCIA DE ID
@@ -166,19 +166,18 @@ select * from logs_salesh2015
 delete FROM logs_salesh WHERE created between '01-01-2015' and '31-12-2015'
 
 
-
 -- OPCION 1: Implementacion del sistema de particionado a través de reglas 
 -- (mayor coste de procesamiento si la inserción es fila a fila)
 CREATE OR REPLACE RULE Insert_logs_sales_2015_rule AS ON INSERT TO logs_salesh
-WHERE (created >= DATE '2015-01-01' AND created <= DATE '2015-12-31' )
+WHERE (created >= '2015-01-01  00:00:00' AND created <= '2015-12-31 23:59:59' )
 DO INSTEAD INSERT INTO logs_salesh2015 VALUES ( NEW.* );
 
 CREATE OR REPLACE RULE Insert_logs_sales_2016_rule AS ON INSERT TO logs_salesh
-WHERE (created >= DATE '2016-01-01' AND created <= DATE '2016-12-31' )
+WHERE (created >= '2016-01-01  00:00:00' AND created <= '2016-12-31 23:59:59' )
 DO INSTEAD INSERT INTO logs_salesh2016 VALUES ( NEW.* );
 
 CREATE OR REPLACE RULE Insert_logs_sales_2017_rule AS ON INSERT TO logs_salesh
-WHERE (created >= DATE '2017-01-01' AND created <= DATE '2017-12-31' )
+WHERE (created >= '2017-01-01  00:00:00' AND created <= '2017-12-31 23:59:59' )
 DO INSTEAD INSERT INTO logs_salesh2017 VALUES ( NEW.* );
 
 
@@ -188,11 +187,11 @@ DO INSTEAD INSERT INTO logs_salesh2017 VALUES ( NEW.* );
 --ESTA SITUACION PREPARAMOS UN CODIGO DE INSERCION PARAMETRIZADO
 CREATE OR REPLACE FUNCTION fn_InsertsalesByYear()  RETURNS TRIGGER AS $$
 BEGIN
-     IF ( NEW.created >= DATE '2015-01-01' AND NEW.created <= DATE '2015-12-31' ) THEN
+     IF ( NEW.created >= '2015-01-01 00:00:00' AND NEW.created <= '2015-12-31 23:59:59' ) THEN
            INSERT INTO logs_salesh2015  VALUES (NEW.*);
-     ELSIF ( NEW.created >= DATE '2016-01-01' AND NEW.created <= DATE '2016-12-31' ) THEN
+     ELSIF ( NEW.created >= '2016-01-01 00:00:00' AND NEW.created <= '2016-12-31 23:59:59' ) THEN
            INSERT INTO logs_salesh2016  VALUES (NEW.*);
-     ELSIF ( NEW.created >= DATE '2017-01-01' AND NEW.created <= DATE '2017-12-31' ) THEN
+     ELSIF ( NEW.created >= '2017-01-01 00:00:00' AND NEW.created <= '2017-12-31 23:59:59' ) THEN
            INSERT INTO logs_salesh2017 VALUES (NEW.*);
      END IF;
      RETURN NULL;
@@ -207,12 +206,11 @@ declare year varchar;
 BEGIN
      select extract (YEAR from NEW.created) into year; 
      EXECUTE FORMAT ('INSERT INTO logs_salesh%s VALUES ($1.*);', year) USING NEW;    
-     RETURN NEW;   --EN LUGAR DE RETURN NULL PARA CONFIRMAR OPERACION
+     RETURN NULL;   --EN LUGAR DE RETURN NULL PARA CONFIRMAR OPERACION
 END;
 $$  LANGUAGE plpgsql;
 
-CREATE TRIGGER Insert_sales_Trigger
-     BEFORE INSERT ON logs_salesh
+CREATE TRIGGER Insert_sales_Trigger BEFORE INSERT ON logs_salesh
 FOR EACH ROW EXECUTE PROCEDURE fn_InsertsalesByYear();
 
 
@@ -225,7 +223,7 @@ BEGIN
      execute format ('CREATE TABLE logs_salesh%s 
                     ( 
                         CONSTRAINT pk_salesh%s primary key (id),
-                        CHECK ( created >= DATE ''%s-01-01'' AND created <= DATE ''%s-12-31'' ) 
+                        CHECK ( created >= ''%s-01-01 00:00:00'' AND created <= ''%s-12-31 23:59:59'' ) 
                     ) INHERITS (logs_salesh);',  year,year,year,year);
 END;
 $$  LANGUAGE plpgsql;
@@ -233,12 +231,10 @@ $$  LANGUAGE plpgsql;
 select fn_createpartlogs('2040');
 
 
-
 --EJECUTAD ESTOS COMANDOS VARIAS VECES Y VEREIS COMO SE DUPLICA LA CLAVE PORQUE AQUI NO SE HA DEFINIDO
 -- INCLUSO LA TENEMOS DUPLICADA 
 explain analyze insert into logs_salesh values (1, 12, '01-02-2015', ARRAY[22,115], 14);
 explain analyze insert into logs_salesh values (1, 15, '02-02-2017', ARRAY[25,101], 2);
-
 
 -- COMO YA HEMOS VISTO, ADEMAS DE DEFINIR CLAVES PRINCIPALES EN CADA PARTICION ES MUY RECOMENDABLE
 -- UTILIZAR DEFAULT PARA QUE EL VALOR DE LA CLAVE SEA AUTOGENERADO Y UNICO ENTRE LAS PARTICIONES
@@ -246,7 +242,6 @@ insert into logs_salesh values (DEFAULT, 12, '01-02-2015', ARRAY[22,115], 14);
 insert into logs_salesh values (DEFAULT, 15, '02-02-2017', ARRAY[25,101], 2);
 insert into logs_salesh values (DEFAULT, 15, '02-02-2018', ARRAY[25,101], 2);
 insert into logs_salesh values (DEFAULT, 15, '02-02-2022', ARRAY[25,101], 2);
-
 
 select * from logs_salesh;
 select * from only logs_salesh;
