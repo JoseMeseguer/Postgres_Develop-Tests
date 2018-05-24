@@ -100,7 +100,7 @@ BEGIN
 END;
 $$  LANGUAGE plpgsql;
 
-select fn_createpartlogs('2040');
+select fn_createpartlogs(2040);
 
 
 

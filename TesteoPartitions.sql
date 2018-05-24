@@ -228,7 +228,7 @@ BEGIN
 END;
 $$  LANGUAGE plpgsql;
 
-select fn_createpartlogs('2040');
+select fn_createpartlogs(2040);
 
 
 --EJECUTAD ESTOS COMANDOS VARIAS VECES Y VEREIS COMO SE DUPLICA LA CLAVE PORQUE AQUI NO SE HA DEFINIDO
