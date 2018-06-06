@@ -114,3 +114,31 @@ UPDATE infogames SET jsonbdata = jsonbdata #- '{PlayStation, 2}'
 WHERE jsonbdata->'nintendo'->>'2DS' = 'xl'; 
 
 SELECT * from infogames;
+
+
+-- ejemplo de modificacion del nombre de una de las claves del documento
+--primero añadimos una clave compleja
+--luego cambiamos su nombre por una version con un par de majusculas
+UPDATE infogames SET jsonbdata = jsonbdata || 
+'{"alienware":[{"SteamMachine1":"v1.0"}, {"SteamMachine2":"v2.0"}, {"SteamMachine3":"v2.1"}]}' 
+WHERE id = 1;
+
+UPDATE infogames SET jsonbdata = jsonbdata - 'alienware' || jsonb_build_object('AlienWare', jsonbdata->'alienware')
+where jsonbdata ? 'alienware';
+
+
+-- encontrar claves repetidas con vistas recursivas
+WITH RECURSIVE find_keys_recursive(key, value) AS (
+  	SELECT i.key, i.value 
+	FROM infogames, jsonb_each(infogames.jsonbdata) AS i 
+	where id = 1	--podemos filtrar el registro del cual queremos evaluar el json
+  	UNION ALL
+  	SELECT f.key, f.value 
+	FROM find_keys_recursive, jsonb_each(CASE 
+										WHEN jsonb_typeof(find_keys_recursive.value) <> 'object' 
+										THEN '{}'::jsonb
+										ELSE find_keys_recursive.value
+										END) AS f
+	)
+SELECT * FROM find_keys_recursive
+WHERE jsonb_typeof(find_keys_recursive.value) <> 'object';
