@@ -2,17 +2,18 @@ set search_path to tests;
 
 --drop  table userweb cascade
 create table userweb (
-    id  bigserial,      --tipo especial, autonumerico de 8 bytes
+    id  bigserial primary key,      --tipo especial, autonumerico de 8 bytes
     nick    varchar(20) not null,
     password varchar(25) not null,
     email   varchar(35) not null,
     dateuser timestamptz not null,
 	status int	-- 0 = registered, 1 = member, 2 = premium
 );
+create unique index uniquenick on userweb(nick);
 
 --drop table client
 create table client (
-    id  	bigint,      --int64
+    id  	bigint primary key,      --int64
     name    varchar(20) not null,
     phone varchar(25) not null,
     address   varchar(35) not null
@@ -24,16 +25,16 @@ from userweb;
 
 create or replace view users as 
 select name, nick, password, dateuser, phone, address, email, status
-from userweb inner join client using (id);
+from userweb left join client USING (id);
 
 select * from userweb;
 select * from client;
 select * from usersweb;
 select * from users;
 
-insert into usersweb values ('john', '1234', 'john@gmail.com', current_timestamp, 0);
+insert into usersweb values ('john2', '1234', 'john@gmail.com', current_timestamp, 0);
 insert into usersweb values ('jim', '1234', 'jim@gmail.com', current_timestamp, 0);
-update usersweb set status = 1 where nick = 'john';
+update usersweb set status = 1 where nick = 'john2';
 delete from usersweb where nick = 'jim';
 
 create or replace view vipsusers as 
@@ -41,14 +42,14 @@ select nick, password, email, dateuser, status
 from userweb where status <> 0;
 
 select * from vipsusers;
-insert into vipsusers values ('luke', '1234', 'luke@gmail.com', current_timestamp, 0);
-update vipsusers set status = 0 where nick = 'john';
-update vipsusers set status = 1 where nick = 'john';
+insert into vipsusers values ('luke3', '1234', 'luke@gmail.com', current_timestamp, 1);
+update vipsusers set status = 0 where nick = 'john2';
+update vipsusers set status = 1 where nick = 'john';   -- NO NOS PERMITIRA MODIFICAR REGISTROS QUE NO APARECEN EN LA VISTA
 
 create or replace view vipsusers as 
 select nick, password, email, dateuser, status
 from userweb where status <> 0
-WITH CASCADE CHECK OPTION;
+WITH CASCADED CHECK OPTION;
 
 
 select * from users;
@@ -57,7 +58,7 @@ update users set status = 0 where nick = 'john';
 
 
 CREATE OR REPLACE FUNCTION updateusers()  RETURNS TRIGGER AS $$
-DECLARE ref integer;
+DECLARE ref bigint;
 BEGIN
     IF (TG_OP = 'INSERT') 
     THEN 
@@ -68,6 +69,7 @@ BEGIN
     THEN 
         delete from userweb where nick = OLD.nick returning id into ref;
 		delete from client where id= ref;
+		return old;
     ELSIF (TG_OP = 'UPDATE') 
     THEN 
 		update userweb set nick = new.nick, password = new.password, 
@@ -80,7 +82,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
+--DROP TRIGGER  trg_updateusers  ON users
 CREATE TRIGGER trg_updateusers INSTEAD OF INSERT OR UPDATE OR DELETE ON users
 FOR EACH ROW EXECUTE PROCEDURE updateusers();
 
